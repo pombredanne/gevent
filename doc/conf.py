@@ -11,6 +11,7 @@
 # All configuration values have a default; values that are commented out
 # serve to show the default.
 
+from __future__ import print_function
 import sys
 import os
 
@@ -19,7 +20,7 @@ os.system('%s generate_rst.py generate' % sys.executable)
 sys.path.append('.')  # for mysphinxext
 
 if not os.path.exists('changelog.rst') and os.path.exists('../changelog.rst'):
-    print 'Linking ../changelog.rst to changelog.rst'
+    print('Linking ../changelog.rst to changelog.rst')
     if hasattr(os, 'symlink'):
         os.symlink('../changelog.rst', 'changelog.rst')
     else:
@@ -108,7 +109,8 @@ modindex_common_prefix = ['gevent.']
 
 # The theme to use for HTML and HTML Help pages.  Major themes that come with
 # Sphinx are currently 'default' and 'sphinxdoc'.
-html_theme = 'default'
+html_theme = 'mytheme'
+html_theme_path = ['.']
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the

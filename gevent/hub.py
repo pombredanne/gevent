@@ -33,9 +33,22 @@ PY3 = sys.version_info[0] >= 3
 if PY3:
     string_types = str,
     integer_types = int,
+    text_type = str
+    xrange = range
+
+    def reraise(tp, value, tb=None):
+        if value.__traceback__ is not tb:
+            raise value.with_traceback(tb)
+        raise value
+
 else:
-    string_types = basestring,
-    integer_types = (int, long)
+    import __builtin__
+    string_types = __builtin__.basestring,
+    text_type = __builtin__.unicode
+    integer_types = (int, __builtin__.long)
+    xrange = __builtin__.xrange
+
+    from gevent._util_py2 import reraise
 
 
 if sys.version_info[0] <= 2:
@@ -62,7 +75,7 @@ def sleep(seconds=0, ref=True):
     *seconds* may be specified as an integer, or a float if fractional seconds
     are desired.
 
-    If *ref* is false, the greenlet running sleep() will not prevent gevent.run()
+    If *ref* is false, the greenlet running sleep() will not prevent gevent.wait()
     from exiting.
     """
     hub = get_hub()
@@ -279,7 +292,7 @@ class Hub(greenlet):
         else:
             try:
                 info = self.loop._format()
-            except Exception, ex:
+            except Exception as ex:
                 info = str(ex) or repr(ex) or 'error'
         result = '<%s at 0x%x %s' % (self.__class__.__name__, id(self), info)
         if self._resolver is not None:
@@ -580,6 +593,10 @@ class Waiter(object):
 
 
 def iwait(objects, timeout=None):
+    """Yield objects as they are ready, until all are ready or timeout expired.
+
+    *objects* must be iterable yielding instance implementing wait protocol (rawlink() and unlink()).
+    """
     # QQQ would be nice to support iterable here that can be generated slowly (why?)
     waiter = Waiter()
     switch = waiter.switch
@@ -609,6 +626,31 @@ def iwait(objects, timeout=None):
 
 
 def wait(objects=None, timeout=None, count=None):
+    """Wait for *objects* to become ready or for event loop to finish.
+
+    If *objects* is provided, it should be an iterable containg objects implementing wait protocol (rawlink() and
+    unlink() methods):
+
+    - :class:`gevent.Greenlet` instance
+    - :class:`gevent.event.Event` instance
+    - :class:`gevent.lock.Semaphore` instance
+    - :class:`gevent.subprocess.Popen` instance
+
+    If *objects* is ``None`` (the default), ``wait()`` blocks until all event loops has nothing to do:
+
+    - all greenlets have finished
+    - all servers were stopped
+    - all event loop watchers were stopped.
+
+    If *count* is ``None`` (the default), wait for all of *object* to become ready.
+
+    If *count* is a number, wait for *count* object to become ready. (For example, if count is ``1`` then the
+    function exits when any object in the list is ready).
+
+    If *timeout* is provided, it specifies the maximum number of seconds ``wait()`` will block.
+
+    Returns the list of ready objects, in the order in which they were ready.
+    """
     if objects is None:
         return get_hub().join(timeout=timeout)
     result = []
